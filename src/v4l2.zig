@@ -168,7 +168,7 @@ pub const TunerType = extern enum(u32) {
     SDR               = 4,
     RF                = 5,
     /// Deprecated, do not use
-    ADC               = .V4L2_TUNER_SDR,
+    ADC               = .SDR,
 };
 
 /// v4l2_memory
@@ -477,9 +477,11 @@ pub const PixFormat = extern struct {
     quantization: Quantization,
     xfer_func: XferFunc,
 
+    /// V4L2_PIX_FMT_PRIV_MAGIC
     /// priv field value to indicates that subsequent fields are valid.
     pub const PRIV_MAGIC: u32         = 0xfeedcafe;
 
+    /// V4L2_PIX_FMT_FLAG_*
     pub const Flags = struct {
         pub const PREMUL_ALPHA  :u32 = 0x00000001;
     };
@@ -841,12 +843,12 @@ pub const Timecode = extern struct {
         userbits: [4]u8,
 
     /// V4L2_TC_TYPE_*
-    pub const Type = extern enum(u32) {
-        @"24FPS" =              1,
-        @"25FPS" =              2 ,
-        @"30FPS" =              3 ,
-        @"50FPS" =              4 ,
-        @"60FPS" =              5,
+    pub const Type = struct {
+        pub const @"24FPS" :u32 =              1;
+        pub const @"25FPS" :u32 =              2;
+        pub const @"30FPS" :u32 =              3;
+        pub const @"50FPS" :u32 =              4;
+        pub const @"60FPS" :u32 =              5;
     };
 
     /// V4L2_TC_*
@@ -910,11 +912,11 @@ pub const Requestbuffers = extern struct {
 ///
 /// capabilities for struct v4l2_requestbuffers and v4l2_create_buffers
 pub const BufCap = struct {
-    MMAP      : u32= 1 << 0,
-    USERPTR   : u32= 1 << 1,
-    DMABUF    : u32= 1 << 2,
-    REQUESTS  : u32= 1 << 3,
-    ORPHANED_BUFS :u32 = 1 << 4,
+    pub const MMAP      : u32= 1 << 0;
+    pub const USERPTR   : u32= 1 << 1;
+    pub const DMABUF    : u32= 1 << 2;
+    pub const REQUESTS  : u32= 1 << 3;
+    pub const ORPHANED_BUFS :u32 = 1 << 4;
 };
 
 /// struct v4l2_plane - plane info for multi-planar buffers
@@ -1000,675 +1002,673 @@ pub const v4l2_buffer = extern struct {
             request_fd: i32,
             reserved: u32,
         },
+
+    /// V4L2_BUF_FLAG_*
+    pub const Flags = struct {
+        // Buffer is mapped (flag)
+        pub const MAPPED                    : u32 = 0x00000001;
+        // Buffer is queued for processing
+        pub const QUEUED                    : u32 = 0x00000002;
+        // Buffer is ready
+        pub const DONE                      : u32 = 0x00000004;
+        // Image is a keyframe (I-frame)
+        pub const KEYFRAME                  : u32 = 0x00000008;
+        // Image is a P-frame
+        pub const PFRAME                    : u32 = 0x00000010;
+        // Image is a B-frame
+        pub const BFRAME                    : u32 = 0x00000020;
+        // Buffer is ready, but the data contained within is corrupted.
+        pub const ERROR                     : u32 = 0x00000040;
+        // Buffer is added to an unqueued request
+        pub const IN_REQUEST                : u32 = 0x00000080;
+        // timecode field is valid
+        pub const TIMECODE                  : u32 = 0x00000100;
+        // Buffer is prepared for queuing
+        pub const PREPARED                  : u32 = 0x00000400;
+        // Cache handling flags
+        pub const NO_CACHE_INVALIDATE       : u32 = 0x00000800;
+        pub const NO_CACHE_CLEAN            : u32 = 0x00001000;
+        // Timestamp type
+        pub const TIMESTAMP_MASK            : u32 = 0x0000e000;
+        pub const TIMESTAMP_UNKNOWN         : u32 = 0x00000000;
+        pub const TIMESTAMP_MONOTONIC       : u32 = 0x00002000;
+        pub const TIMESTAMP_COPY            : u32 = 0x00004000;
+        // Timestamp sources.
+        pub const TSTAMP_SRC_MASK           : u32 = 0x00070000;
+        pub const TSTAMP_SRC_EOF            : u32 = 0x00000000;
+        pub const TSTAMP_SRC_SOE            : u32 = 0x00010000;
+        // mem2mem encoder/decoder
+        pub const LAST                      : u32 = 0x00100000;
+        // request_fd is valid
+        pub const REQUEST_FD                : u32 = 0x00800000;
+
+    };
 };
 
-/**
- * v4l2_timeval_to_ns - Convert timeval to nanoseconds
- * @ts:         pointer to the timeval variable to be converted
- *
- * Returns the scalar nanosecond representation of the timeval
- * parameter.
- */
-static inline __u64 v4l2_timeval_to_ns(const struct timeval *tv)
-{
-        return (__u64)tv->tv_sec * 1000000000ULL + tv->tv_usec * 1000;
+/// v4l2_timeval_to_ns - Convert timeval to nanoseconds
+/// @ts:         pointer to the timeval variable to be converted
+///
+/// Returns the scalar nanosecond representation of the timeval
+/// parameter.
+pub inline fn timevalTo_ns(tv: *std.os.linux.timeval) u64 {
+    return tv.tv_sec * 1000000000 + tv.tv_usec * 1000;
 }
 
-/*  Flags for 'flags' field */
-/* Buffer is mapped (flag) */
-#define V4L2_BUF_FLAG_MAPPED                    0x00000001
-/* Buffer is queued for processing */
-#define V4L2_BUF_FLAG_QUEUED                    0x00000002
-/* Buffer is ready */
-#define V4L2_BUF_FLAG_DONE                      0x00000004
-/* Image is a keyframe (I-frame) */
-#define V4L2_BUF_FLAG_KEYFRAME                  0x00000008
-/* Image is a P-frame */
-#define V4L2_BUF_FLAG_PFRAME                    0x00000010
-/* Image is a B-frame */
-#define V4L2_BUF_FLAG_BFRAME                    0x00000020
-/* Buffer is ready, but the data contained within is corrupted. */
-#define V4L2_BUF_FLAG_ERROR                     0x00000040
-/* Buffer is added to an unqueued request */
-#define V4L2_BUF_FLAG_IN_REQUEST                0x00000080
-/* timecode field is valid */
-#define V4L2_BUF_FLAG_TIMECODE                  0x00000100
-/* Buffer is prepared for queuing */
-#define V4L2_BUF_FLAG_PREPARED                  0x00000400
-/* Cache handling flags */
-#define V4L2_BUF_FLAG_NO_CACHE_INVALIDATE       0x00000800
-#define V4L2_BUF_FLAG_NO_CACHE_CLEAN            0x00001000
-/* Timestamp type */
-#define V4L2_BUF_FLAG_TIMESTAMP_MASK            0x0000e000
-#define V4L2_BUF_FLAG_TIMESTAMP_UNKNOWN         0x00000000
-#define V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC       0x00002000
-#define V4L2_BUF_FLAG_TIMESTAMP_COPY            0x00004000
-/* Timestamp sources. */
-#define V4L2_BUF_FLAG_TSTAMP_SRC_MASK           0x00070000
-#define V4L2_BUF_FLAG_TSTAMP_SRC_EOF            0x00000000
-#define V4L2_BUF_FLAG_TSTAMP_SRC_SOE            0x00010000
-/* mem2mem encoder/decoder */
-#define V4L2_BUF_FLAG_LAST                      0x00100000
-/* request_fd is valid */
-#define V4L2_BUF_FLAG_REQUEST_FD                0x00800000
-
-/**
- * struct v4l2_exportbuffer - export of video buffer as DMABUF file descriptor
- *
- * @index:      id number of the buffer
- * @type:       enum v4l2_buf_type; buffer type (type == *_MPLANE for
- *              multiplanar buffers);
- * @plane:      index of the plane to be exported, 0 for single plane queues
- * @flags:      flags for newly created file, currently only O_CLOEXEC is
- *              supported, refer to manual of open syscall for more details
- * @fd:         file descriptor associated with DMABUF (set by driver)
- *
- * Contains data used for exporting a video buffer as DMABUF file descriptor.
- * The buffer is identified by a 'cookie' returned by VIDIOC_QUERYBUF
- * (identical to the cookie used to mmap() the buffer to userspace). All
- * reserved fields must be set to zero. The field reserved0 is expected to
- * become a structure 'type' allowing an alternative layout of the structure
- * content. Therefore this field should not be used for any other extensions.
- */
-struct v4l2_exportbuffer {
-        __u32           type; /* enum v4l2_buf_type */
-        __u32           index;
-        __u32           plane;
-        __u32           flags;
-        __s32           fd;
-        __u32           reserved[11];
+/// struct v4l2_exportbuffer - export of video buffer as DMABUF file descriptor
+///
+/// @index:      id number of the buffer
+/// @type:       enum v4l2_buf_type; buffer type (type == *_MPLANE for
+///              multiplanar buffers);
+/// @plane:      index of the plane to be exported, 0 for single plane queues
+/// @flags:      flags for newly created file, currently only O_CLOEXEC is
+///              supported, refer to manual of open syscall for more details
+/// @fd:         file descriptor associated with DMABUF (set by driver)
+///
+/// Contains data used for exporting a video buffer as DMABUF file descriptor.
+/// The buffer is identified by a 'cookie' returned by VIDIOC_QUERYBUF
+/// (identical to the cookie used to mmap() the buffer to userspace). All
+/// reserved fields must be set to zero. The field reserved0 is expected to
+/// become a structure 'type' allowing an alternative layout of the structure
+/// content. Therefore this field should not be used for any other extensions.
+pub const ExportBuffer = extern struct {
+    type: BufType,
+    index: u32,
+    plane: u32,
+    flags: u32,
+    fd: i32,
+    reserved: [11]u32,
 };
 
-/*
- *      O V E R L A Y   P R E V I E W
- */
-struct v4l2_framebuffer {
-        __u32                   capability;
-        __u32                   flags;
-/* FIXME: in theory we should pass something like PCI device + memory
- * region + offset instead of some physical address */
-        void                    *base;
-        struct {
-                __u32           width;
-                __u32           height;
-                __u32           pixelformat;
-                __u32           field;          /* enum v4l2_field */
-                __u32           bytesperline;   /* for padding, zero if unused */
-                __u32           sizeimage;
-                __u32           colorspace;     /* enum v4l2_colorspace */
-                __u32           priv;           /* reserved field, set to 0 */
-        } fmt;
-};
-/*  Flags for the 'capability' field. Read only */
-#define V4L2_FBUF_CAP_EXTERNOVERLAY     0x0001
-#define V4L2_FBUF_CAP_CHROMAKEY         0x0002
-#define V4L2_FBUF_CAP_LIST_CLIPPING     0x0004
-#define V4L2_FBUF_CAP_BITMAP_CLIPPING   0x0008
-#define V4L2_FBUF_CAP_LOCAL_ALPHA       0x0010
-#define V4L2_FBUF_CAP_GLOBAL_ALPHA      0x0020
-#define V4L2_FBUF_CAP_LOCAL_INV_ALPHA   0x0040
-#define V4L2_FBUF_CAP_SRC_CHROMAKEY     0x0080
-/*  Flags for the 'flags' field. */
-#define V4L2_FBUF_FLAG_PRIMARY          0x0001
-#define V4L2_FBUF_FLAG_OVERLAY          0x0002
-#define V4L2_FBUF_FLAG_CHROMAKEY        0x0004
-#define V4L2_FBUF_FLAG_LOCAL_ALPHA      0x0008
-#define V4L2_FBUF_FLAG_GLOBAL_ALPHA     0x0010
-#define V4L2_FBUF_FLAG_LOCAL_INV_ALPHA  0x0020
-#define V4L2_FBUF_FLAG_SRC_CHROMAKEY    0x0040
+// ------------------------------------- //
+//     O V E R L A Y   P R E V I E W     //
+// ------------------------------------- //
 
-struct v4l2_clip {
-        struct v4l2_rect        c;
-        struct v4l2_clip        __user *next;
-};
+/// v4l2_framebuffer
+pub const FrameBuffer = extern struct {
+    capability: u32,
+    flags: u32,
+    // FIXME: in theory we should pass something like PCI device + memory
+    // region + offset instead of some physical address
+    base: usize,
+    fmt: extern struct {
+        width: u32,
+        height: u32,
+        pixelformat: u32,
+        field: Field,
+        bytesperline: u32,   // for padding, zero if unused
+        sizeimage: u32,
+        colorspace: Colorspace,
+        priv: u32,           // reserved field, set to 0
+    },
 
-struct v4l2_window {
-        struct v4l2_rect        w;
-        __u32                   field;   /* enum v4l2_field */
-        __u32                   chromakey;
-        struct v4l2_clip        __user *clips;
-        __u32                   clipcount;
-        void                    __user *bitmap;
-        __u8                    global_alpha;
+    //  Flags for the 'capability' field. Read only
+    pub const FlagsCap = struct {
+        pub const EXTERNOVERLAY     : u32 = 0x0001;
+        pub const CHROMAKEY         : u32 = 0x0002;
+        pub const LIST_CLIPPING     : u32 = 0x0004;
+        pub const BITMAP_CLIPPING   : u32 = 0x0008;
+        pub const LOCAL_ALPHA       : u32 = 0x0010;
+        pub const GLOBAL_ALPHA      : u32 = 0x0020;
+        pub const LOCAL_INV_ALPHA   : u32 = 0x0040;
+        pub const SRC_CHROMAKEY     : u32 = 0x0080;
+    };
+
+    //  Flags for the 'flags' field.
+    pub const Flags = struct {
+        pub const _PRIMARY          : u32 = 0x0001;
+        pub const _OVERLAY          : u32 = 0x0002;
+        pub const _CHROMAKEY        : u32 = 0x0004;
+        pub const _LOCAL_ALPHA      : u32 = 0x0008;
+        pub const _GLOBAL_ALPHA     : u32 = 0x0010;
+        pub const _LOCAL_INV_ALPHA  : u32 = 0x0020;
+        pub const _SRC_CHROMAKEY    : u32 = 0x0040;
+    };
 };
 
-/*
- *      C A P T U R E   P A R A M E T E R S
- */
-struct v4l2_captureparm {
-        __u32              capability;    /*  Supported modes */
-        __u32              capturemode;   /*  Current mode */
-        struct v4l2_fract  timeperframe;  /*  Time per frame in seconds */
-        __u32              extendedmode;  /*  Driver-specific extensions */
-        __u32              readbuffers;   /*  # of buffers for read */
-        __u32              reserved[4];
+/// v4l2_clip
+pub const Clip = extern struct {
+    c: Rect,
+    next: *Clip,
 };
 
-/*  Flags for 'capability' and 'capturemode' fields */
-#define V4L2_MODE_HIGHQUALITY   0x0001  /*  High quality imaging mode */
-#define V4L2_CAP_TIMEPERFRAME   0x1000  /*  timeperframe field is supported */
-
-struct v4l2_outputparm {
-        __u32              capability;   /*  Supported modes */
-        __u32              outputmode;   /*  Current mode */
-        struct v4l2_fract  timeperframe; /*  Time per frame in seconds */
-        __u32              extendedmode; /*  Driver-specific extensions */
-        __u32              writebuffers; /*  # of buffers for write */
-        __u32              reserved[4];
+/// v4l2_window
+pub const Window = extern struct {
+    w: Rect,
+    field: Field,
+    chromakey: u32,
+    clips: *Clip,
+    clipcount: u32,
+    bitmap: usize,
+    global_alpha: u8,
 };
 
-/*
- *      I N P U T   I M A G E   C R O P P I N G
- */
-struct v4l2_cropcap {
-        __u32                   type;   /* enum v4l2_buf_type */
-        struct v4l2_rect        bounds;
-        struct v4l2_rect        defrect;
-        struct v4l2_fract       pixelaspect;
+// ------------------------------------------- //
+//     C A P T U R E   P A R A M E T E R S     //
+// ------------------------------------------- //
+
+pub const CaptureParm = extern struct {
+    capability: u32,    //  Supported modes
+    capturemode: u32,   //  Current mode
+    timeperframe: Fract,  //  Time per frame in seconds
+    extendedmode: u32,  //  Driver-specific extensions
+    readbuffers: u32,   //  # of buffers for read
+    reserved: [4]u32,
+
+    ///  Flags for 'capability' and 'capturemode' fields
+    pub const Flags = struct {
+        pub const MODE_HIGHQUALITY   :u32 = 0x0001;  //  High quality imaging mode
+        pub const CAP_TIMEPERFRAME   :u32 = 0x1000;  //  timeperframe field is supported
+    };
 };
 
-struct v4l2_crop {
-        __u32                   type;   /* enum v4l2_buf_type */
-        struct v4l2_rect        c;
+/// v4l2_outputparm
+pub const OutputParm = extern struct {
+    capability: u32,   //  Supported modes
+    outputmode: u32,   //  Current mode
+    timeperframe: Fract, //  Time per frame in seconds
+    extendedmode: u32, //  Driver-specific extensions
+    writebuffers: u32, //  # of buffers for write
+    reserved: [4]u32,
 };
 
-/**
- * struct v4l2_selection - selection info
- * @type:       buffer type (do not use *_MPLANE types)
- * @target:     Selection target, used to choose one of possible rectangles;
- *              defined in v4l2-common.h; V4L2_SEL_TGT_* .
- * @flags:      constraints flags, defined in v4l2-common.h; V4L2_SEL_FLAG_*.
- * @r:          coordinates of selection window
- * @reserved:   for future use, rounds structure size to 64 bytes, set to zero
- *
- * Hardware may use multiple helper windows to process a video stream.
- * The structure is used to exchange this selection areas between
- * an application and a driver.
- */
-struct v4l2_selection {
-        __u32                   type;
-        __u32                   target;
-        __u32                   flags;
-        struct v4l2_rect        r;
-        __u32                   reserved[9];
+// ----------------------------------------------- //
+//     I N P U T   I M A G E   C R O P P I N G     //
+// ----------------------------------------------- //
+
+/// v4l2_cropcap
+pub const CropCap = extern struct {
+    type: BufType,
+    bounds: Rect,
+    defrect: Rect,
+    pixelaspect: Fract,
 };
 
-/*
- *      A N A L O G   V I D E O   S T A N D A R D
- */
-
-typedef __u64 v4l2_std_id;
-
-/* one bit for each */
-#define V4L2_STD_PAL_B          ((v4l2_std_id)0x00000001)
-#define V4L2_STD_PAL_B1         ((v4l2_std_id)0x00000002)
-#define V4L2_STD_PAL_G          ((v4l2_std_id)0x00000004)
-#define V4L2_STD_PAL_H          ((v4l2_std_id)0x00000008)
-#define V4L2_STD_PAL_I          ((v4l2_std_id)0x00000010)
-#define V4L2_STD_PAL_D          ((v4l2_std_id)0x00000020)
-#define V4L2_STD_PAL_D1         ((v4l2_std_id)0x00000040)
-#define V4L2_STD_PAL_K          ((v4l2_std_id)0x00000080)
-
-#define V4L2_STD_PAL_M          ((v4l2_std_id)0x00000100)
-#define V4L2_STD_PAL_N          ((v4l2_std_id)0x00000200)
-#define V4L2_STD_PAL_Nc         ((v4l2_std_id)0x00000400)
-#define V4L2_STD_PAL_60         ((v4l2_std_id)0x00000800)
-
-#define V4L2_STD_NTSC_M         ((v4l2_std_id)0x00001000)       /* BTSC */
-#define V4L2_STD_NTSC_M_JP      ((v4l2_std_id)0x00002000)       /* EIA-J */
-#define V4L2_STD_NTSC_443       ((v4l2_std_id)0x00004000)
-#define V4L2_STD_NTSC_M_KR      ((v4l2_std_id)0x00008000)       /* FM A2 */
-
-#define V4L2_STD_SECAM_B        ((v4l2_std_id)0x00010000)
-#define V4L2_STD_SECAM_D        ((v4l2_std_id)0x00020000)
-#define V4L2_STD_SECAM_G        ((v4l2_std_id)0x00040000)
-#define V4L2_STD_SECAM_H        ((v4l2_std_id)0x00080000)
-#define V4L2_STD_SECAM_K        ((v4l2_std_id)0x00100000)
-#define V4L2_STD_SECAM_K1       ((v4l2_std_id)0x00200000)
-#define V4L2_STD_SECAM_L        ((v4l2_std_id)0x00400000)
-#define V4L2_STD_SECAM_LC       ((v4l2_std_id)0x00800000)
-
-/* ATSC/HDTV */
-#define V4L2_STD_ATSC_8_VSB     ((v4l2_std_id)0x01000000)
-#define V4L2_STD_ATSC_16_VSB    ((v4l2_std_id)0x02000000)
-
-/* FIXME:
-   Although std_id is 64 bits, there is an issue on PPC32 architecture that
-   makes switch(__u64) to break. So, there's a hack on v4l2-common.c rounding
-   this value to 32 bits.
-   As, currently, the max value is for V4L2_STD_ATSC_16_VSB (30 bits wide),
-   it should work fine. However, if needed to add more than two standards,
-   v4l2-common.c should be fixed.
- */
-
-/*
- * Some macros to merge video standards in order to make live easier for the
- * drivers and V4L2 applications
- */
-
-/*
- * "Common" NTSC/M - It should be noticed that V4L2_STD_NTSC_443 is
- * Missing here.
- */
-#define V4L2_STD_NTSC           (V4L2_STD_NTSC_M        |\
-                                 V4L2_STD_NTSC_M_JP     |\
-                                 V4L2_STD_NTSC_M_KR)
-/* Secam macros */
-#define V4L2_STD_SECAM_DK       (V4L2_STD_SECAM_D       |\
-                                 V4L2_STD_SECAM_K       |\
-                                 V4L2_STD_SECAM_K1)
-/* All Secam Standards */
-#define V4L2_STD_SECAM          (V4L2_STD_SECAM_B       |\
-                                 V4L2_STD_SECAM_G       |\
-                                 V4L2_STD_SECAM_H       |\
-                                 V4L2_STD_SECAM_DK      |\
-                                 V4L2_STD_SECAM_L       |\
-                                 V4L2_STD_SECAM_LC)
-/* PAL macros */
-#define V4L2_STD_PAL_BG         (V4L2_STD_PAL_B         |\
-                                 V4L2_STD_PAL_B1        |\
-                                 V4L2_STD_PAL_G)
-#define V4L2_STD_PAL_DK         (V4L2_STD_PAL_D         |\
-                                 V4L2_STD_PAL_D1        |\
-                                 V4L2_STD_PAL_K)
-/*
- * "Common" PAL - This macro is there to be compatible with the old
- * V4L1 concept of "PAL": /BGDKHI.
- * Several PAL standards are missing here: /M, /N and /Nc
- */
-#define V4L2_STD_PAL            (V4L2_STD_PAL_BG        |\
-                                 V4L2_STD_PAL_DK        |\
-                                 V4L2_STD_PAL_H         |\
-                                 V4L2_STD_PAL_I)
-/* Chroma "agnostic" standards */
-#define V4L2_STD_B              (V4L2_STD_PAL_B         |\
-                                 V4L2_STD_PAL_B1        |\
-                                 V4L2_STD_SECAM_B)
-#define V4L2_STD_G              (V4L2_STD_PAL_G         |\
-                                 V4L2_STD_SECAM_G)
-#define V4L2_STD_H              (V4L2_STD_PAL_H         |\
-                                 V4L2_STD_SECAM_H)
-#define V4L2_STD_L              (V4L2_STD_SECAM_L       |\
-                                 V4L2_STD_SECAM_LC)
-#define V4L2_STD_GH             (V4L2_STD_G             |\
-                                 V4L2_STD_H)
-#define V4L2_STD_DK             (V4L2_STD_PAL_DK        |\
-                                 V4L2_STD_SECAM_DK)
-#define V4L2_STD_BG             (V4L2_STD_B             |\
-                                 V4L2_STD_G)
-#define V4L2_STD_MN             (V4L2_STD_PAL_M         |\
-                                 V4L2_STD_PAL_N         |\
-                                 V4L2_STD_PAL_Nc        |\
-                                 V4L2_STD_NTSC)
-
-/* Standards where MTS/BTSC stereo could be found */
-#define V4L2_STD_MTS            (V4L2_STD_NTSC_M        |\
-                                 V4L2_STD_PAL_M         |\
-                                 V4L2_STD_PAL_N         |\
-                                 V4L2_STD_PAL_Nc)
-
-/* Standards for Countries with 60Hz Line frequency */
-#define V4L2_STD_525_60         (V4L2_STD_PAL_M         |\
-                                 V4L2_STD_PAL_60        |\
-                                 V4L2_STD_NTSC          |\
-                                 V4L2_STD_NTSC_443)
-/* Standards for Countries with 50Hz Line frequency */
-#define V4L2_STD_625_50         (V4L2_STD_PAL           |\
-                                 V4L2_STD_PAL_N         |\
-                                 V4L2_STD_PAL_Nc        |\
-                                 V4L2_STD_SECAM)
-
-#define V4L2_STD_ATSC           (V4L2_STD_ATSC_8_VSB    |\
-                                 V4L2_STD_ATSC_16_VSB)
-/* Macros with none and all analog standards */
-#define V4L2_STD_UNKNOWN        0
-#define V4L2_STD_ALL            (V4L2_STD_525_60        |\
-                                 V4L2_STD_625_50)
-
-struct v4l2_standard {
-        __u32                index;
-        v4l2_std_id          id;
-        __u8                 name[24];
-        struct v4l2_fract    frameperiod; /* Frames, not fields */
-        __u32                framelines;
-        __u32                reserved[4];
+/// v4l2_crop
+pub const Crop = extern struct {
+    type: BufType,
+    c: Rect,
 };
 
-/*
- *      D V     B T     T I M I N G S
- */
-
-/** struct v4l2_bt_timings - BT.656/BT.1120 timing data
- * @width:      total width of the active video in pixels
- * @height:     total height of the active video in lines
- * @interlaced: Interlaced or progressive
- * @polarities: Positive or negative polarities
- * @pixelclock: Pixel clock in HZ. Ex. 74.25MHz->74250000
- * @hfrontporch:Horizontal front porch in pixels
- * @hsync:      Horizontal Sync length in pixels
- * @hbackporch: Horizontal back porch in pixels
- * @vfrontporch:Vertical front porch in lines
- * @vsync:      Vertical Sync length in lines
- * @vbackporch: Vertical back porch in lines
- * @il_vfrontporch:Vertical front porch for the even field
- *              (aka field 2) of interlaced field formats
- * @il_vsync:   Vertical Sync length for the even field
- *              (aka field 2) of interlaced field formats
- * @il_vbackporch:Vertical back porch for the even field
- *              (aka field 2) of interlaced field formats
- * @standards:  Standards the timing belongs to
- * @flags:      Flags
- * @picture_aspect: The picture aspect ratio (hor/vert).
- * @cea861_vic: VIC code as per the CEA-861 standard.
- * @hdmi_vic:   VIC code as per the HDMI standard.
- * @reserved:   Reserved fields, must be zeroed.
- *
- * A note regarding vertical interlaced timings: height refers to the total
- * height of the active video frame (= two fields). The blanking timings refer
- * to the blanking of each field. So the height of the total frame is
- * calculated as follows:
- *
- * tot_height = height + vfrontporch + vsync + vbackporch +
- *                       il_vfrontporch + il_vsync + il_vbackporch
- *
- * The active height of each field is height / 2.
- */
-struct v4l2_bt_timings {
-        __u32   width;
-        __u32   height;
-        __u32   interlaced;
-        __u32   polarities;
-        __u64   pixelclock;
-        __u32   hfrontporch;
-        __u32   hsync;
-        __u32   hbackporch;
-        __u32   vfrontporch;
-        __u32   vsync;
-        __u32   vbackporch;
-        __u32   il_vfrontporch;
-        __u32   il_vsync;
-        __u32   il_vbackporch;
-        __u32   standards;
-        __u32   flags;
-        struct v4l2_fract picture_aspect;
-        __u8    cea861_vic;
-        __u8    hdmi_vic;
-        __u8    reserved[46];
-} __attribute__ ((packed));
-
-/* Interlaced or progressive format */
-#define V4L2_DV_PROGRESSIVE     0
-#define V4L2_DV_INTERLACED      1
-
-/* Polarities. If bit is not set, it is assumed to be negative polarity */
-#define V4L2_DV_VSYNC_POS_POL   0x00000001
-#define V4L2_DV_HSYNC_POS_POL   0x00000002
-
-/* Timings standards */
-#define V4L2_DV_BT_STD_CEA861   (1 << 0)  /* CEA-861 Digital TV Profile */
-#define V4L2_DV_BT_STD_DMT      (1 << 1)  /* VESA Discrete Monitor Timings */
-#define V4L2_DV_BT_STD_CVT      (1 << 2)  /* VESA Coordinated Video Timings */
-#define V4L2_DV_BT_STD_GTF      (1 << 3)  /* VESA Generalized Timings Formula */
-#define V4L2_DV_BT_STD_SDI      (1 << 4)  /* SDI Timings */
-
-/* Flags */
-
-/*
- * CVT/GTF specific: timing uses reduced blanking (CVT) or the 'Secondary
- * GTF' curve (GTF). In both cases the horizontal and/or vertical blanking
- * intervals are reduced, allowing a higher resolution over the same
- * bandwidth. This is a read-only flag.
- */
-#define V4L2_DV_FL_REDUCED_BLANKING             (1 << 0)
-/*
- * CEA-861 specific: set for CEA-861 formats with a framerate of a multiple
- * of six. These formats can be optionally played at 1 / 1.001 speed.
- * This is a read-only flag.
- */
-#define V4L2_DV_FL_CAN_REDUCE_FPS               (1 << 1)
-/*
- * CEA-861 specific: only valid for video transmitters, the flag is cleared
- * by receivers.
- * If the framerate of the format is a multiple of six, then the pixelclock
- * used to set up the transmitter is divided by 1.001 to make it compatible
- * with 60 Hz based standards such as NTSC and PAL-M that use a framerate of
- * 29.97 Hz. Otherwise this flag is cleared. If the transmitter can't generate
- * such frequencies, then the flag will also be cleared.
- */
-#define V4L2_DV_FL_REDUCED_FPS                  (1 << 2)
-/*
- * Specific to interlaced formats: if set, then field 1 is really one half-line
- * longer and field 2 is really one half-line shorter, so each field has
- * exactly the same number of half-lines. Whether half-lines can be detected
- * or used depends on the hardware.
- */
-#define V4L2_DV_FL_HALF_LINE                    (1 << 3)
-/*
- * If set, then this is a Consumer Electronics (CE) video format. Such formats
- * differ from other formats (commonly called IT formats) in that if RGB
- * encoding is used then by default the RGB values use limited range (i.e.
- * use the range 16-235) as opposed to 0-255. All formats defined in CEA-861
- * except for the 640x480 format are CE formats.
- */
-#define V4L2_DV_FL_IS_CE_VIDEO                  (1 << 4)
-/* Some formats like SMPTE-125M have an interlaced signal with a odd
- * total height. For these formats, if this flag is set, the first
- * field has the extra line. If not, it is the second field.
- */
-#define V4L2_DV_FL_FIRST_FIELD_EXTRA_LINE       (1 << 5)
-/*
- * If set, then the picture_aspect field is valid. Otherwise assume that the
- * pixels are square, so the picture aspect ratio is the same as the width to
- * height ratio.
- */
-#define V4L2_DV_FL_HAS_PICTURE_ASPECT           (1 << 6)
-/*
- * If set, then the cea861_vic field is valid and contains the Video
- * Identification Code as per the CEA-861 standard.
- */
-#define V4L2_DV_FL_HAS_CEA861_VIC               (1 << 7)
-/*
- * If set, then the hdmi_vic field is valid and contains the Video
- * Identification Code as per the HDMI standard (HDMI Vendor Specific
- * InfoFrame).
- */
-#define V4L2_DV_FL_HAS_HDMI_VIC                 (1 << 8)
-/*
- * CEA-861 specific: only valid for video receivers.
- * If set, then HW can detect the difference between regular FPS and
- * 1000/1001 FPS. Note: This flag is only valid for HDMI VIC codes with
- * the V4L2_DV_FL_CAN_REDUCE_FPS flag set.
- */
-#define V4L2_DV_FL_CAN_DETECT_REDUCED_FPS       (1 << 9)
-
-/* A few useful defines to calculate the total blanking and frame sizes */
-#define V4L2_DV_BT_BLANKING_WIDTH(bt) \
-        ((bt)->hfrontporch + (bt)->hsync + (bt)->hbackporch)
-#define V4L2_DV_BT_FRAME_WIDTH(bt) \
-        ((bt)->width + V4L2_DV_BT_BLANKING_WIDTH(bt))
-#define V4L2_DV_BT_BLANKING_HEIGHT(bt) \
-        ((bt)->vfrontporch + (bt)->vsync + (bt)->vbackporch + \
-         (bt)->il_vfrontporch + (bt)->il_vsync + (bt)->il_vbackporch)
-#define V4L2_DV_BT_FRAME_HEIGHT(bt) \
-        ((bt)->height + V4L2_DV_BT_BLANKING_HEIGHT(bt))
-
-/** struct v4l2_dv_timings - DV timings
- * @type:       the type of the timings
- * @bt: BT656/1120 timings
- */
-struct v4l2_dv_timings {
-        __u32 type;
-        union {
-                struct v4l2_bt_timings  bt;
-                __u32   reserved[32];
-        };
-} __attribute__ ((packed));
-
-/* Values for the type field */
-#define V4L2_DV_BT_656_1120     0       /* BT.656/1120 timing type */
-
-/** struct v4l2_enum_dv_timings - DV timings enumeration
- * @index:      enumeration index
- * @pad:        the pad number for which to enumerate timings (used with
- *              v4l-subdev nodes only)
- * @reserved:   must be zeroed
- * @timings:    the timings for the given index
- */
-struct v4l2_enum_dv_timings {
-        __u32 index;
-        __u32 pad;
-        __u32 reserved[2];
-        struct v4l2_dv_timings timings;
+/// struct v4l2_selection - selection info
+/// @type:       buffer type (do not use *_MPLANE types)
+/// @target:     Selection target, used to choose one of possible rectangles;
+///              defined in v4l2-common.h; V4L2_SEL_TGT_* .
+/// @flags:      constraints flags, defined in v4l2-common.h; V4L2_SEL_FLAG_*.
+/// @r:          coordinates of selection window
+/// @reserved:   for future use, rounds structure size to 64 bytes, set to zero
+///
+/// Hardware may use multiple helper windows to process a video stream.
+/// The structure is used to exchange this selection areas between
+/// an application and a driver.
+pub const  Selection = extern struct {
+    type: BufType,
+    target: u32,
+    flags: u32,
+    r: Rect,
+    reserved: [9]u32,
 };
 
-/** struct v4l2_bt_timings_cap - BT.656/BT.1120 timing capabilities
- * @min_width:          width in pixels
- * @max_width:          width in pixels
- * @min_height:         height in lines
- * @max_height:         height in lines
- * @min_pixelclock:     Pixel clock in HZ. Ex. 74.25MHz->74250000
- * @max_pixelclock:     Pixel clock in HZ. Ex. 74.25MHz->74250000
- * @standards:          Supported standards
- * @capabilities:       Supported capabilities
- * @reserved:           Must be zeroed
- */
-struct v4l2_bt_timings_cap {
-        __u32   min_width;
-        __u32   max_width;
-        __u32   min_height;
-        __u32   max_height;
-        __u64   min_pixelclock;
-        __u64   max_pixelclock;
-        __u32   standards;
-        __u32   capabilities;
-        __u32   reserved[16];
-} __attribute__ ((packed));
+// ------------------------------------------------- //
+//     A N A L O G   V I D E O   S T A N D A R D     //
+// ------------------------------------------------- //
 
-/* Supports interlaced formats */
-#define V4L2_DV_BT_CAP_INTERLACED       (1 << 0)
-/* Supports progressive formats */
-#define V4L2_DV_BT_CAP_PROGRESSIVE      (1 << 1)
-/* Supports CVT/GTF reduced blanking */
-#define V4L2_DV_BT_CAP_REDUCED_BLANKING (1 << 2)
-/* Supports custom formats */
-#define V4L2_DV_BT_CAP_CUSTOM           (1 << 3)
+pub const StdId = u64;
 
-/** struct v4l2_dv_timings_cap - DV timings capabilities
- * @type:       the type of the timings (same as in struct v4l2_dv_timings)
- * @pad:        the pad number for which to query capabilities (used with
- *              v4l-subdev nodes only)
- * @bt:         the BT656/1120 timings capabilities
- */
-struct v4l2_dv_timings_cap {
-        __u32 type;
-        __u32 pad;
-        __u32 reserved[2];
-        union {
-                struct v4l2_bt_timings_cap bt;
-                __u32 raw_data[32];
-        };
+pub const Std = struct {
+
+    // one bit for each
+    pub const PAL_B          : StdId =  0x00000001;
+    pub const PAL_B1         : StdId =  0x00000002;
+    pub const PAL_G          : StdId =  0x00000004;
+    pub const PAL_H          : StdId =  0x00000008;
+    pub const PAL_I          : StdId =  0x00000010;
+    pub const PAL_D          : StdId =  0x00000020;
+    pub const PAL_D1         : StdId =  0x00000040;
+    pub const PAL_K          : StdId =  0x00000080;
+
+    pub const PAL_M          : StdId = 0x00000100;
+    pub const PAL_N          : StdId = 0x00000200;
+    pub const PAL_Nc         : StdId = 0x00000400;
+    pub const PAL_60         : StdId = 0x00000800;
+
+    pub const NTSC_M         : StdId = 0x00001000;       // BTSC
+    pub const NTSC_M_JP      : StdId = 0x00002000;       // EIA-J
+    pub const NTSC_443       : StdId = 0x00004000;
+    pub const NTSC_M_KR      : StdId = 0x00008000;       // FM A2
+
+    pub const SECAM_B        : StdId = 0x00010000;
+    pub const SECAM_D        : StdId = 0x00020000;
+    pub const SECAM_G        : StdId = 0x00040000;
+    pub const SECAM_H        : StdId = 0x00080000;
+    pub const SECAM_K        : StdId = 0x00100000;
+    pub const SECAM_K1       : StdId = 0x00200000;
+    pub const SECAM_L        : StdId = 0x00400000;
+    pub const SECAM_LC       : StdId = 0x00800000;
+
+    // ATSC/HDTV
+    pub const ATSC_8_VSB     : StdId = 0x01000000;
+    pub const ATSC_16_VSB    : StdId = 0x02000000;
+
+    // FIXME:
+    // Although std_id is 64 bits, there is an issue on PPC32 architecture that
+    // makes switch(__u64) to break. So, there's a hack on v4l2-common.c rounding
+    // this value to 32 bits.
+    // As, currently, the max value is for V4L2_STD_ATSC_16_VSB (30 bits wide),
+    // it should work fine. However, if needed to add more than two standards,
+    // v4l2-common.c should be fixed.
+
+    // Some macros to merge video standards in order to make live easier for the
+    // drivers and V4L2 applications
+
+    // "Common" NTSC/M - It should be noticed that V4L2_STD_NTSC_443 is
+    // Missing here.
+    pub const NTSC           : StdId = .NTSC_M | .NTSC_M_JP | .NTSC_M_KR;
+    // Secam macros
+    pub const SECAM_DK       : StdId = V4L2_STD_SECAM_D | V4L2_STD_SECAM_K | V4L2_STD_SECAM_K1;
+    // All Secam Standards
+    pub const SECAM          : StdId = V4L2_STD_SECAM_B | V4L2_STD_SECAM_G       | V4L2_STD_SECAM_H       | V4L2_STD_SECAM_DK      | V4L2_STD_SECAM_L       | V4L2_STD_SECAM_LC;
+    // PAL macros
+    pub const PAL_BG         : StdId = V4L2_STD_PAL_B         | V4L2_STD_PAL_B1        | V4L2_STD_PAL_G;
+    pub const PAL_DK         : StdId = V4L2_STD_PAL_D         | V4L2_STD_PAL_D1        | V4L2_STD_PAL_K;
+
+    // "Common" PAL - This macro is there to be compatible with the old
+    // V4L1 concept of "PAL": /BGDKHI.
+    // Several PAL standards are missing here: /M, /N and /Nc
+    pub const PAL            : StdId = V4L2_STD_PAL_BG        | V4L2_STD_PAL_DK        | V4L2_STD_PAL_H         | V4L2_STD_PAL_I;
+
+    // Chroma "agnostic" standards
+    pub const B              : StdId = V4L2_STD_PAL_B         | V4L2_STD_PAL_B1        | V4L2_STD_SECAM_B;
+    pub const G              : StdId = V4L2_STD_PAL_G         | V4L2_STD_SECAM_G;
+    pub const H              : StdId = V4L2_STD_PAL_H         | V4L2_STD_SECAM_H;
+    pub const L              : StdId = V4L2_STD_SECAM_L       | V4L2_STD_SECAM_LC;
+    pub const GH             : StdId = V4L2_STD_G             | V4L2_STD_H;
+    pub const DK             : StdId = V4L2_STD_PAL_DK        | V4L2_STD_SECAM_DK;
+    pub const BG             : StdId = V4L2_STD_B             | V4L2_STD_G;
+    pub const MN             : StdId = V4L2_STD_PAL_M         | V4L2_STD_PAL_N         | V4L2_STD_PAL_Nc        | V4L2_STD_NTSC;
+
+// Standards where MTS/BTSC stereo could be found
+    pub const MTS            : StdId = V4L2_STD_NTSC_M        | V4L2_STD_PAL_M         | V4L2_STD_PAL_N         | V4L2_STD_PAL_Nc;
+
+// Standards for Countries with 60Hz Line frequency
+    pub const @"525_60"         : StdId = V4L2_STD_PAL_M         | V4L2_STD_PAL_60        | V4L2_STD_NTSC          | V4L2_STD_NTSC_443;
+// Standards for Countries with 50Hz Line frequency
+    pub const @"625_50"         : StdId = V4L2_STD_PAL           | V4L2_STD_PAL_N         | V4L2_STD_PAL_Nc        | V4L2_STD_SECAM;
+
+    pub const ATSC           : StdId = V4L2_STD_ATSC_8_VSB    | V4L2_STD_ATSC_16_VSB;
+// Macros with none and all analog standards
+    pub const UNKNOWN        : StdId = 0;
+    pub const ALL            : StdId = V4L2_STD_525_60        | V4L2_STD_625_50;
 };
 
-/*
- *      V I D E O   I N P U T S
- */
-struct v4l2_input {
-        __u32        index;             /*  Which input */
-        __u8         name[32];          /*  Label */
-        __u32        type;              /*  Type of input */
-        __u32        audioset;          /*  Associated audios (bitfield) */
-        __u32        tuner;             /*  enum v4l2_tuner_type */
-        v4l2_std_id  std;
-        __u32        status;
-        __u32        capabilities;
-        __u32        reserved[3];
+/// v4l2_standard
+pub const Standard = extern struct {
+        index: u32,
+        id: StdId,
+        name: [24]u8,
+        frameperiod: Fract, // Frames, not fields
+        framelines: u32,
+        reserved: [4]u32,
 };
 
-/*  Values for the 'type' field */
-#define V4L2_INPUT_TYPE_TUNER           1
-#define V4L2_INPUT_TYPE_CAMERA          2
-#define V4L2_INPUT_TYPE_TOUCH           3
+// ------------------------------------- //
+//     D V     B T     T I M I N G S     //
+// ------------------------------------- //
 
-/* field 'status' - general */
-#define V4L2_IN_ST_NO_POWER    0x00000001  /* Attached device is off */
-#define V4L2_IN_ST_NO_SIGNAL   0x00000002
-#define V4L2_IN_ST_NO_COLOR    0x00000004
+///  struct v4l2_bt_timings - BT.656/BT.1120 timing data
+/// @width:      total width of the active video in pixels
+/// @height:     total height of the active video in lines
+/// @interlaced: Interlaced or progressive
+/// @polarities: Positive or negative polarities
+/// @pixelclock: Pixel clock in HZ. Ex. 74.25MHz->74250000
+/// @hfrontporch:Horizontal front porch in pixels
+/// @hsync:      Horizontal Sync length in pixels
+/// @hbackporch: Horizontal back porch in pixels
+/// @vfrontporch:Vertical front porch in lines
+/// @vsync:      Vertical Sync length in lines
+/// @vbackporch: Vertical back porch in lines
+/// @il_vfrontporch:Vertical front porch for the even field
+///              (aka field 2) of interlaced field formats
+/// @il_vsync:   Vertical Sync length for the even field
+///              (aka field 2) of interlaced field formats
+/// @il_vbackporch:Vertical back porch for the even field
+///              (aka field 2) of interlaced field formats
+/// @standards:  Standards the timing belongs to
+/// @flags:      Flags
+/// @picture_aspect: The picture aspect ratio (hor/vert).
+/// @cea861_vic: VIC code as per the CEA-861 standard.
+/// @hdmi_vic:   VIC code as per the HDMI standard.
+/// @reserved:   Reserved fields, must be zeroed.
+///
+/// A note regarding vertical interlaced timings: height refers to the total
+/// height of the active video frame (= two fields). The blanking timings refer
+/// to the blanking of each field. So the height of the total frame is
+/// calculated as follows:
+///
+/// tot_height = height + vfrontporch + vsync + vbackporch +
+///                       il_vfrontporch + il_vsync + il_vbackporch
+///
+/// The active height of each field is height / 2.
+pub const BTTimings = extern struct {
+        width: u32,
+        height: u32,
+        interlaced: u32,
+        polarities: u32,
+        pixelclock: u64,
+        hfrontporch: u32,
+        hsync: u32,
+        hbackporch: u32
+        vfrontporch: u32,
+        vsync: u32,
+        vbackporch: u32,
+        il_vfrontporch: u32,
+        il_vsync: u32,
+        il_vbackporch: u32,
+        standards: u32,
+        flags: u32,
+        picture_aspect: Fract,
+        cea861_vic: u8,
+        hdmi_vic: u8,
+        reserved: [46]u8,
 
-/* field 'status' - sensor orientation */
-/* If sensor is mounted upside down set both bits */
-#define V4L2_IN_ST_HFLIP       0x00000010 /* Frames are flipped horizontally */
-#define V4L2_IN_ST_VFLIP       0x00000020 /* Frames are flipped vertically */
-
-/* field 'status' - analog */
-#define V4L2_IN_ST_NO_H_LOCK   0x00000100  /* No horizontal sync lock */
-#define V4L2_IN_ST_COLOR_KILL  0x00000200  /* Color killer is active */
-#define V4L2_IN_ST_NO_V_LOCK   0x00000400  /* No vertical sync lock */
-#define V4L2_IN_ST_NO_STD_LOCK 0x00000800  /* No standard format lock */
-
-/* field 'status' - digital */
-#define V4L2_IN_ST_NO_SYNC     0x00010000  /* No synchronization lock */
-#define V4L2_IN_ST_NO_EQU      0x00020000  /* No equalizer lock */
-#define V4L2_IN_ST_NO_CARRIER  0x00040000  /* Carrier recovery failed */
-
-/* field 'status' - VCR and set-top box */
-#define V4L2_IN_ST_MACROVISION 0x01000000  /* Macrovision detected */
-#define V4L2_IN_ST_NO_ACCESS   0x02000000  /* Conditional access denied */
-#define V4L2_IN_ST_VTR         0x04000000  /* VTR time constant */
-
-/* capabilities flags */
-#define V4L2_IN_CAP_DV_TIMINGS          0x00000002 /* Supports S_DV_TIMINGS */
-#define V4L2_IN_CAP_CUSTOM_TIMINGS      V4L2_IN_CAP_DV_TIMINGS /* For compatibility */
-#define V4L2_IN_CAP_STD                 0x00000004 /* Supports S_STD */
-#define V4L2_IN_CAP_NATIVE_SIZE         0x00000008 /* Supports setting native size */
-
-/*
- *      V I D E O   O U T P U T S
- */
-struct v4l2_output {
-        __u32        index;             /*  Which output */
-        __u8         name[32];          /*  Label */
-        __u32        type;              /*  Type of output */
-        __u32        audioset;          /*  Associated audios (bitfield) */
-        __u32        modulator;         /*  Associated modulator */
-        v4l2_std_id  std;
-        __u32        capabilities;
-        __u32        reserved[3];
+    // A few useful defines to calculate the total blanking and frame sizes
+    pub inline fn blankingWidth(bt: BTTimings) u32 {
+        return bt.hfrontporch + bt.hsync + bt.hbackporch;
+    }
+    pub inline fn frameWidth(bt: BTTimings) u32 {
+        return bt.width + bt.blankingWidth();
+    }
+    pub inline fn blankingHeight(bt: BTTimings) u32 {
+        return bt.il_vbackporch + bt.vsync + bt.vbackporch;
+    }
+    pub inline fn frameHeight(bt: BTTimings) u32 {
+        return bt.height + bt.blankingHeight();
+    }
 };
-/*  Values for the 'type' field */
-#define V4L2_OUTPUT_TYPE_MODULATOR              1
-#define V4L2_OUTPUT_TYPE_ANALOG                 2
-#define V4L2_OUTPUT_TYPE_ANALOGVGAOVERLAY       3
 
-/* capabilities flags */
-#define V4L2_OUT_CAP_DV_TIMINGS         0x00000002 /* Supports S_DV_TIMINGS */
-#define V4L2_OUT_CAP_CUSTOM_TIMINGS     V4L2_OUT_CAP_DV_TIMINGS /* For compatibility */
-#define V4L2_OUT_CAP_STD                0x00000004 /* Supports S_STD */
-#define V4L2_OUT_CAP_NATIVE_SIZE        0x00000008 /* Supports setting native size */
+// Interlaced or progressive format
+pub const DV_PROGRESSIVE     : u32 = 0;
+pub const DV_INTERLACED      : u32 = 1;
 
-/*
- *      C O N T R O L S
- */
-struct v4l2_control {
-        __u32                id;
-        __s32                value;
+// Polarities. If bit is not set, it is assumed to be negative polarity
+pub const DV_VSYNC_POS_POL   : u32 = 0x00000001;
+pub const DV_HSYNC_POS_POL   : u32 = 0x00000002;
+
+// Timings standards
+/// CEA-861 Digital TV Profile
+pub const DV_BT_STD_CEA861   : u32 = (1 << 0);
+/// VESA Discrete Monitor Timings
+pub const DV_BT_STD_DMT      : u32 = (1 << 1);
+/// VESA Coordinated Video Timings
+pub const DV_BT_STD_CVT      : u32 = (1 << 2);
+/// VESA Generalized Timings Formula
+pub const DV_BT_STD_GTF      : u32 = (1 << 3);
+/// SDI Timings
+pub const DV_BT_STD_SDI      : u32 = (1 << 4);
+
+// Flags
+
+/// CVT/GTF specific: timing uses reduced blanking (CVT) or the 'Secondary
+/// GTF' curve (GTF). In both cases the horizontal and/or vertical blanking
+/// intervals are reduced, allowing a higher resolution over the same
+/// bandwidth. This is a read-only flag.
+pub const DV_FL_REDUCED_BLANKING             : u32 = (1 << 0);
+/// CEA-861 specific: set for CEA-861 formats with a framerate of a multiple
+/// of six. These formats can be optionally played at 1 / 1.001 speed.
+/// This is a read-only flag.
+pub const DV_FL_CAN_REDUCE_FPS               : u32 = (1 << 1);
+/// CEA-861 specific: only valid for video transmitters, the flag is cleared
+/// by receivers.
+/// If the framerate of the format is a multiple of six, then the pixelclock
+/// used to set up the transmitter is divided by 1.001 to make it compatible
+/// with 60 Hz based standards such as NTSC and PAL-M that use a framerate of
+/// 29.97 Hz. Otherwise this flag is cleared. If the transmitter can't generate
+/// such frequencies, then the flag will also be cleared.
+pub const DV_FL_REDUCED_FPS                  : u32 = (1 << 2);
+/// Specific to interlaced formats: if set, then field 1 is really one half-line
+/// longer and field 2 is really one half-line shorter, so each field has
+/// exactly the same number of half-lines. Whether half-lines can be detected
+/// or used depends on the hardware.
+pub const DV_FL_HALF_LINE                    : u32 = (1 << 3);
+///If set, then this is a Consumer Electronics (CE) video format. Such formats
+///differ from other formats (commonly called IT formats) in that if RGB
+///encoding is used then by default the RGB values use limited range (i.e.
+///use the range 16-235) as opposed to 0-255. All formats defined in CEA-861
+///except for the 640x480 format are CE formats.
+pub const DV_FL_IS_CE_VIDEO                  : u32 = (1 << 4);
+/// Some formats like SMPTE-125M have an interlaced signal with a odd
+/// total height. For these formats, if this flag is set, the first
+/// field has the extra line. If not, it is the second field.
+pub const DV_FL_FIRST_FIELD_EXTRA_LINE       : u32 = (1 << 5);
+/// If set, then the picture_aspect field is valid. Otherwise assume that the
+/// pixels are square, so the picture aspect ratio is the same as the width to
+/// height ratio.
+pub const DV_FL_HAS_PICTURE_ASPECT           : u32 = (1 << 6);
+/// If set, then the cea861_vic field is valid and contains the Video
+/// Identification Code as per the CEA-861 standard.
+pub const DV_FL_HAS_CEA861_VIC               : u32 = (1 << 7);
+/// If set, then the hdmi_vic field is valid and contains the Video
+/// Identification Code as per the HDMI standard (HDMI Vendor Specific
+/// InfoFrame).
+pub const DV_FL_HAS_HDMI_VIC                 : u32 = (1 << 8);
+/// CEA-861 specific: only valid for video receivers.
+/// If set, then HW can detect the difference between regular FPS and
+/// 1000/1001 FPS. Note: This flag is only valid for HDMI VIC codes with
+/// the V4L2_DV_FL_CAN_REDUCE_FPS flag set.
+pub const DV_FL_CAN_DETECT_REDUCED_FPS       : u32 = (1 << 9);
+
+///  struct v4l2_dv_timings - DV timings
+/// @type:       the type of the timings
+/// @bt: BT656/1120 timings
+pub const DVTimings = extern struct {
+    type: u32,
+    _u: extern union {
+        bt: BTTimings,
+        reserved: [32]u32,
+    },
 };
 
-struct v4l2_ext_control {
-        __u32 id;
-        __u32 size;
-        __u32 reserved2[1];
-        union {
-                __s32 value;
-                __s64 value64;
-                char __user *string;
-                __u8 __user *p_u8;
-                __u16 __user *p_u16;
-                __u32 __user *p_u32;
-                void __user *ptr;
-        };
-} __attribute__ ((packed));
+// Values for the type field
+pub const DV_BT_656_1120     : u32 = 0       // BT.656/1120 timing type
 
-struct v4l2_ext_controls {
+///  struct v4l2_enum_dv_timings - DV timings enumeration
+/// @index:      enumeration index
+/// @pad:        the pad number for which to enumerate timings (used with
+///              v4l-subdev nodes only)
+/// @reserved:   must be zeroed
+/// @timings:    the timings for the given index
+pub const EnumDVTimings = extern struct {
+    index: u32,
+    pad: u32,
+    reserved: [2]u32,
+    timings: DVTimings,
+};
+
+///  struct v4l2_bt_timings_cap - BT.656/BT.1120 timing capabilities
+/// @min_width:          width in pixels
+/// @max_width:          width in pixels
+/// @min_height:         height in lines
+/// @max_height:         height in lines
+/// @min_pixelclock:     Pixel clock in HZ. Ex. 74.25MHz->74250000
+/// @max_pixelclock:     Pixel clock in HZ. Ex. 74.25MHz->74250000
+/// @standards:          Supported standards
+/// @capabilities:       Supported capabilities
+/// @reserved:           Must be zeroed
+pub const BTTimingsCap = extern struct {
+        min_width: u32,
+        max_width: u32,
+        min_height: u32,
+        max_height: u32,
+        min_pixelclock: u64,
+        max_pixelclock: u64,
+        standards: u32,
+        capabilities: u32,
+        reserved: [16]u32,
+};
+
+// Supports interlaced formats
+pub const DV_BT_CAP_INTERLACED       : u32 = (1 << 0);
+// Supports progressive formats
+pub const DV_BT_CAP_PROGRESSIVE      : u32 = (1 << 1);
+// Supports CVT/GTF reduced blanking
+pub const DV_BT_CAP_REDUCED_BLANKING : u32 = (1 << 2);
+// Supports custom formats
+pub const DV_BT_CAP_CUSTOM           : u32 = (1 << 3);
+
+///  struct v4l2_dv_timings_cap - DV timings capabilities
+/// @type:       the type of the timings (same as in struct v4l2_dv_timings)
+/// @pad:        the pad number for which to query capabilities (used with
+///              v4l-subdev nodes only)
+/// @bt:         the BT656/1120 timings capabilities
+pub const DVTimingsCap = extern struct {
+        type: u32,
+        pad: u32,
+        reserved: [2]u32,
+        _u = extern union {
+                bt: BTTimingsCap,
+                raw_data: [32]u32,
+        },
+};
+
+// ------------------------------- //
+//     V I D E O   I N P U T S     //
+// ------------------------------- //
+pub const Input = extern struct {
+    index: u32,             //  Which input
+    name: [32]u8,          //  Label
+    type: u32,              //  Type of input
+    audioset: u32,          //  Associated audios (bitfield)
+    tuner: TunerType,
+    std: StdId,
+    status: u32,
+    capabilities: u32,
+    reserved: [3]u32,
+
+    ///  Values for the 'type' field
+    pub const Type = struct {
+        pub const INPUT_TYPE_TUNER           : u32 = 1;
+        pub const INPUT_TYPE_CAMERA          : u32 = 2;
+        pub const INPUT_TYPE_TOUCH           : u32 = 3;
+    };
+
+    /// Flags for the 'status' field
+    pub const Status = struct {
+        // field 'status' - general
+        /// Attached device is off
+        pub const IN_ST_NO_POWER    : u32 = 0x00000001;
+        pub const IN_ST_NO_SIGNAL   : u32 = 0x00000002;
+        pub const IN_ST_NO_COLOR    : u32 = 0x00000004;
+
+        // field 'status' - sensor orientation
+        // If sensor is mounted upside down set both bits
+        /// Frames are flipped horizontally
+        pub const IN_ST_HFLIP       : u32 = 0x00000010;
+        /// Frames are flipped vertically
+        pub const IN_ST_VFLIP       : u32 = 0x00000020;
+
+        // field 'status' - analog
+        /// No horizontal sync lock
+        pub const IN_ST_NO_H_LOCK   : u32 = 0x00000100;
+        /// Color killer is active
+        pub const IN_ST_COLOR_KILL  : u32 = 0x00000200;
+        /// No vertical sync lock
+        pub const IN_ST_NO_V_LOCK   : u32 = 0x00000400;
+        /// No standard format lock
+        pub const IN_ST_NO_STD_LOCK : u32 = 0x00000800;
+
+        // field 'status' - digital
+        /// No synchronization lock
+        pub const IN_ST_NO_SYNC     : u32 = 0x00010000;
+        /// No equalizer lock
+        pub const IN_ST_NO_EQU      : u32 = 0x00020000;
+        /// Carrier recovery failed
+        pub const IN_ST_NO_CARRIER  : u32 = 0x00040000;
+
+        // field 'status' - VCR and set-top box
+        /// Macrovision detected
+        pub const IN_ST_MACROVISION : u32 = 0x01000000  ;
+        /// Conditional access denied
+        pub const IN_ST_NO_ACCESS   : u32 = 0x02000000  ;
+        /// VTR time constant
+        pub const IN_ST_VTR         : u32 = 0x04000000  ;
+
+    };
+
+    pub const Capabilities = struct {
+        // capabilities flags
+        /// Supports S_DV_TIMINGS
+        pub const IN_CAP_DV_TIMINGS          : u32 = 0x00000002 ;
+        /// For compatibility
+        pub const IN_CAP_CUSTOM_TIMINGS      : u32 = IN_CAP_DV_TIMINGS;
+        /// Supports S_STD
+        pub const IN_CAP_STD                 : u32 = 0x00000004 ;
+        /// Supports setting native size
+        pub const IN_CAP_NATIVE_SIZE         : u32 = 0x00000008 ;
+
+    };
+
+};
+
+
+// --------------------------------- //
+//     V I D E O   O U T P U T S     //
+// --------------------------------- //
+
+pub const Output = extern struct {
+    index: u32,             //  Which output
+    name: [32]u8,          //  Label
+    type: u32,              //  Type of output
+    audioset:u32,          //  Associated audios (bitfield)
+    modulator: u32,         //  Associated modulator
+    std: StdId,
+    capabilities: u32,
+    reserved: [3]u32,
+
+    ///  Values for the 'type' field
+    pub const Type = struct {
+        pub const OUTPUT_TYPE_MODULATOR              : u32 = 1;
+        pub const OUTPUT_TYPE_ANALOG                 : u32 = 2;
+        pub const OUTPUT_TYPE_ANALOGVGAOVERLAY       : u32 = 3;
+    };
+
+    /// capabilities flags
+    pub const Capabilities = struct {
+        /// Supports S_DV_TIMINGS
+        pub const OUT_CAP_DV_TIMINGS         : u32 = 0x00000002;
+        /// For compatibility
+        pub const OUT_CAP_CUSTOM_TIMINGS     : u32 = OUT_CAP_DV_TIMINGS;
+        /// Supports S_STD
+        pub const OUT_CAP_STD                : u32 = 0x00000004;
+        /// Supports setting native size
+        pub const OUT_CAP_NATIVE_SIZE        : u32 = 0x00000008;
+    };
+};
+
+
+// ----------------------- //
+//     C O N T R O L S     //
+// ----------------------- //
+
+pub const Control = extern struct {
+    id: u32,
+    value: i32,
+};
+
+pub const ExtControl = extern struct {
+        id: u32,
+        size: u32,
+        reserved2: [1]u32,
+        _u: extern union {
+            value: i32,
+            value64: i64,
+            string: [*]u8,
+            p_u8: [*]u8,
+            p_u16: [*]u16,
+            p_u32: [*]u32,
+            ptr: usize,
+        },
+};
+
+pub const ExtControls = extern struct {
         union {
 #ifndef __KERNEL__
                 __u32 ctrl_class;
